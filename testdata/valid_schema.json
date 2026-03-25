@@ -9,21 +9,6 @@
       "type": "string",
       "required": true
     },
-    "status": {
-      "type": "enum",
-      "required": true,
-      "values": [
-        "backlog",
-        "active",
-        "done"
-      ],
-      "default": "backlog"
-    },
-    "depends_on": {
-      "type": "list",
-      "item_type": "string",
-      "default": []
-    },
     "source": {
       "type": "string",
       "required": false

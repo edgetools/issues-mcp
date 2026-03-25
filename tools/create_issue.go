@@ -15,11 +15,7 @@ import (
 // RegisterCreateIssue registers the create_issue tool.
 func RegisterCreateIssue(srv *server.MCPServer, store *issues.Store, s *schema.Schema) {
 	tool := mcp.NewTool("create_issue",
-		mcp.WithDescription("Creates a new issue. The ID is auto-generated from the area field. New issues always start in the backlog status."),
-		mcp.WithString("title",
-			mcp.Required(),
-			mcp.Description("Issue title"),
-		),
+		mcp.WithDescription("Creates a new issue. The ID is auto-generated from the area field. New issues always start in the first status. Call get_fields first to learn which fields are required."),
 		mcp.WithString("area",
 			mcp.Required(),
 			mcp.Description("Issue area (e.g. 'Combat/Aggro'). Determines the ID prefix."),
@@ -29,10 +25,6 @@ func RegisterCreateIssue(srv *server.MCPServer, store *issues.Store, s *schema.S
 		),
 	)
 	srv.AddTool(tool, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		title, err := req.RequireString("title")
-		if err != nil {
-			return errResult("title is required"), nil
-		}
 		area, err := req.RequireString("area")
 		if err != nil {
 			return errResult("area is required"), nil
@@ -52,13 +44,9 @@ func RegisterCreateIssue(srv *server.MCPServer, store *issues.Store, s *schema.S
 			}
 		}
 
-		// Apply caller-provided fields
-		fields["title"] = title
-		fields["area"] = area
-
-		// Apply any additional schema-defined fields provided in args (beyond title/area/body)
+		// Apply caller-provided schema-defined fields
 		for fname, fdef := range s.Fields {
-			if fdef.Generated || fname == "title" || fname == "area" || fname == "status" {
+			if fdef.Generated {
 				continue
 			}
 			if val, ok := args[fname]; ok && val != nil {
@@ -66,17 +54,20 @@ func RegisterCreateIssue(srv *server.MCPServer, store *issues.Store, s *schema.S
 			}
 		}
 
-		// Validate provided field values
-		for fname, val := range fields {
-			fdef, ok := s.Fields[fname]
-			if !ok {
+		// Validate field values and enforce required fields
+		for fname, fdef := range s.Fields {
+			if fdef.Generated {
 				continue
 			}
-			if fdef.Generated {
-				return errResult(fmt.Sprintf("field '%s' is generated and cannot be set", fname)), nil
+			if fdef.Required {
+				if _, ok := fields[fname]; !ok {
+					return errResult(fmt.Sprintf("field '%s' is required", fname)), nil
+				}
 			}
-			if err := schema.ValidateFieldValue(fdef, val); err != nil {
-				return errResult(fmt.Sprintf("field '%s': %s", fname, err.Error())), nil
+			if val, ok := fields[fname]; ok {
+				if err := schema.ValidateFieldValue(fdef, val); err != nil {
+					return errResult(fmt.Sprintf("field '%s': %s", fname, err.Error())), nil
+				}
 			}
 		}
 
@@ -86,10 +77,16 @@ func RegisterCreateIssue(srv *server.MCPServer, store *issues.Store, s *schema.S
 			return errResult(fmt.Sprintf("generating ID: %v", err)), nil
 		}
 		fields["id"] = id
+		fields["area"] = area
 
-		// Determine initial status (always backlog for new issues)
-		initialStatus := s.Statuses[0] // first status is always backlog per spec
+		// Determine initial status (always first status for new issues)
+		initialStatus := s.Statuses[0]
 		fields["status"] = initialStatus
+
+		// depends_on defaults to empty list
+		if _, ok := fields["depends_on"]; !ok {
+			fields["depends_on"] = []interface{}{}
+		}
 
 		// Build the issue file
 		f := &issues.IssueFile{

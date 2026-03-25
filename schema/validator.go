@@ -192,7 +192,8 @@ func ValidateRecord(s *Schema, rec IssueRecord, allIDs map[string]bool) []Valida
 	return errs
 }
 
-// ValidateAll validates a slice of issue records, including duplicate ID detection.
+// ValidateAll validates a slice of issue records, including duplicate ID detection
+// and circular dependency detection.
 func ValidateAll(s *Schema, records []IssueRecord) []ValidationError {
 	// Build all-IDs set and detect duplicates
 	allIDs := make(map[string]bool, len(records))
@@ -216,6 +217,55 @@ func ValidateAll(s *Schema, records []IssueRecord) []ValidationError {
 
 	for _, rec := range records {
 		errs = append(errs, ValidateRecord(s, rec, allIDs)...)
+	}
+
+	errs = append(errs, detectCircularDeps(records)...)
+
+	return errs
+}
+
+// detectCircularDeps returns a ValidationError for each issue that participates
+// in a circular depends_on chain.
+func detectCircularDeps(records []IssueRecord) []ValidationError {
+	deps := make(map[string][]string, len(records))
+	for _, rec := range records {
+		if depVal, ok := rec.Fields["depends_on"]; ok && depVal != nil {
+			if list, ok := toStringSlice(depVal); ok {
+				deps[rec.ID] = list
+			}
+		}
+	}
+
+	var errs []ValidationError
+	visited := make(map[string]bool)
+	inStack := make(map[string]bool)
+
+	var dfs func(id string) bool
+	dfs = func(id string) bool {
+		if inStack[id] {
+			return true
+		}
+		if visited[id] {
+			return false
+		}
+		visited[id] = true
+		inStack[id] = true
+		for _, dep := range deps[id] {
+			if dfs(dep) {
+				errs = append(errs, ValidationError{
+					ID:    id,
+					Field: "depends_on",
+					Error: "circular dependency detected",
+				})
+				break
+			}
+		}
+		inStack[id] = false
+		return false
+	}
+
+	for _, rec := range records {
+		dfs(rec.ID)
 	}
 
 	return errs

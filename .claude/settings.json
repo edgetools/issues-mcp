@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(just build)",
+      "Bash(just test)"
+    ],
+    "deny": [
+      "Bash(go build)",
+      "Bash(go test)"
+    ]
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "just test",
+            "timeout": 600,
+            "statusMessage": "Running tests..."
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -23,37 +23,23 @@ func Load(path string) (*Schema, error) {
 }
 
 // validateSchema checks schema-level invariants: intrinsic fields are absent,
-// status is correctly declared, and status references are consistent.
+// statuses array is valid, and status references are consistent.
 func validateSchema(s *Schema) error {
-	// id and area are MCP-intrinsic and must not be declared in fields.
-	for _, name := range []string{"id", "area"} {
+	// id, area, status, and depends_on are MCP-intrinsic and must not be declared in fields.
+	for _, name := range []string{"id", "area", "status", "depends_on"} {
 		if _, ok := s.Fields[name]; ok {
 			return fmt.Errorf("schema error: '%s' must not be declared in fields (it is an MCP-intrinsic field)", name)
 		}
 	}
 
-	// status must exist, be an enum, have values matching statuses, and have a default.
-	statusDef, ok := s.Fields["status"]
-	if !ok {
-		return fmt.Errorf("schema error: 'status' must be declared in fields")
+	// statuses must exist and contain at least one entry.
+	if len(s.Statuses) == 0 {
+		return fmt.Errorf("schema error: 'statuses' must contain at least one entry")
 	}
-	if statusDef.Type != FieldTypeEnum {
-		return fmt.Errorf("schema error: 'status' must be type 'enum'")
-	}
-	if statusDef.Default == nil {
-		return fmt.Errorf("schema error: 'status' must have a default value")
-	}
+
 	statusSet := make(map[string]bool, len(s.Statuses))
 	for _, sv := range s.Statuses {
 		statusSet[sv] = true
-	}
-	if len(statusDef.Values) != len(s.Statuses) {
-		return fmt.Errorf("schema error: 'status.values' must exactly match 'statuses'")
-	}
-	for _, v := range statusDef.Values {
-		if !statusSet[v] {
-			return fmt.Errorf("schema error: 'status.values' contains %q which is not in 'statuses'", v)
-		}
 	}
 
 	return validateSchemaRefs(s, statusSet)

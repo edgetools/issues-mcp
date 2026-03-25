@@ -28,11 +28,22 @@ func handleGetFields(s *schema.Schema) func(context.Context, mcp.CallToolRequest
 			Note     string   `json:"note,omitempty"`
 		}
 
-		fields := make(map[string]FieldInfo, len(s.Fields)+2)
+		fields := make(map[string]FieldInfo, len(s.Fields)+4)
 
 		// MCP-intrinsic fields: always present, not declared in schema.
 		fields["id"] = FieldInfo{Type: "string", Writable: false, Note: "auto-generated from area"}
 		fields["area"] = FieldInfo{Type: "string", Writable: true}
+		fields["status"] = FieldInfo{
+			Type:     "enum",
+			Writable: false,
+			Values:   s.Statuses,
+			Note:     "use move_issue to change status",
+		}
+		fields["depends_on"] = FieldInfo{
+			Type:     "list",
+			Writable: true,
+			Note:     "list of issue IDs, validated for existence",
+		}
 
 		// Schema-defined fields.
 		for name, fdef := range s.Fields {
@@ -40,11 +51,7 @@ func handleGetFields(s *schema.Schema) func(context.Context, mcp.CallToolRequest
 				Type:     string(fdef.Type),
 				Writable: !fdef.Generated,
 			}
-			if name == "status" {
-				info.Writable = false
-				info.Note = "use move_issue to change status"
-				info.Values = fdef.Values
-			} else if fdef.Type == schema.FieldTypeEnum {
+			if fdef.Type == schema.FieldTypeEnum {
 				info.Values = fdef.Values
 			}
 			fields[name] = info

@@ -13,7 +13,6 @@ type SearchMatch struct {
 // SearchResult is a matched issue with its match locations.
 type SearchResult struct {
 	ID      string        `json:"id"`
-	Title   string        `json:"title"`
 	Status  string        `json:"status"`
 	Area    string        `json:"area"`
 	Path    string        `json:"path"`
@@ -40,7 +39,6 @@ func (st *Store) Search(query, statusFilter string) ([]SearchResult, error) {
 		if len(matches) > 0 {
 			results = append(results, SearchResult{
 				ID:      f.ID,
-				Title:   StringField(f.Fields, "title"),
 				Status:  f.DirStatus,
 				Area:    StringField(f.Fields, "area"),
 				Path:    f.RelPath,

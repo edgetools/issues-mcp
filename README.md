@@ -18,8 +18,6 @@ just install # installs to $GOPATH/bin
   "statuses": ["backlog", "active", "done"],
   "fields": {
     "title":         { "type": "string", "required": true },
-    "status":        { "type": "enum", "required": true, "values": ["backlog", "active", "done"], "default": "backlog" },
-    "depends_on":    { "type": "list", "item_type": "string", "default": [] },
     "spec_approved": { "type": "bool", "default": false }
   },
   "transitions": {
@@ -129,12 +127,14 @@ Field types: `string`, `bool`, `enum`, `list`, `int`
 
 ### Field tiers
 
-Fields come from three sources:
+Fields come from two sources:
 
 | Tier | Fields | Declared in schema? |
 |------|--------|---------------------|
-| MCP-intrinsic | `id`, `area` | No — hardwired; declaring them in `fields` is a startup error |
-| Required by MCP | `status` | Yes — must be type `enum` with `values` matching `statuses` and a `default` |
+| MCP-intrinsic | `id`, `area`, `status`, `depends_on` | No — hardwired; declaring any of them in `fields` is a startup error |
 | Project-defined | everything else | Yes — add whatever fields the project needs |
 
-`id` is auto-generated from `area` and cannot be updated. `area` cannot be changed after creation.
+- `id` — auto-generated from `area`; never writable
+- `area` — set at creation; cannot be changed
+- `status` — driven by the `statuses` array; change via `move_issue` only
+- `depends_on` — list of issue IDs; writable through `update_fields`, validated for existence
