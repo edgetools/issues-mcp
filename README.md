@@ -4,14 +4,13 @@ Schema-driven issue management MCP server. Issues are markdown files with YAML f
 
 ## Quick Start
 
-### 1. Build
+### 1. Install
 
 ```sh
-just build   # output: build/issues-mcp
-just install # installs to $GOPATH/bin
+go install github.com/edgetools/issues-mcp@latest
 ```
 
-### 2. Create a schema
+### 2. Create a `schema.json` file
 
 ```json
 {
