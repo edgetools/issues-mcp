@@ -1,0 +1,70 @@
+{
+  "statuses": [
+    "backlog",
+    "active",
+    "done"
+  ],
+  "fields": {
+    "id": {
+      "type": "string",
+      "required": true,
+      "generated": true
+    },
+    "title": {
+      "type": "string",
+      "required": true
+    },
+    "status": {
+      "type": "enum",
+      "required": true,
+      "values": [
+        "backlog",
+        "active",
+        "done"
+      ],
+      "default": "backlog"
+    },
+    "area": {
+      "type": "string",
+      "required": true
+    },
+    "depends_on": {
+      "type": "list",
+      "item_type": "string",
+      "default": []
+    },
+    "source": {
+      "type": "string",
+      "required": false
+    },
+    "spec_approved": {
+      "type": "bool",
+      "default": false
+    }
+  },
+  "transitions": {
+    "backlog": [
+      "active"
+    ],
+    "active": [
+      "done",
+      "backlog"
+    ],
+    "done": []
+  },
+  "gates": {
+    "active": {
+      "requires": {
+        "spec_approved": true
+      }
+    }
+  },
+  "locks": {
+    "body": {
+      "locked_in": [
+        "active",
+        "done"
+      ]
+    }
+  }
+}
