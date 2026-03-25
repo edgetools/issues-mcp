@@ -5,6 +5,29 @@ import (
 	"strings"
 )
 
+// validateSchemaRefs checks that every status referenced in transitions, gates,
+// and locks.body.locked_in is a valid status from the statuses list.
+func validateSchemaRefs(s *Schema, statusSet map[string]bool) error {
+	for k := range s.Transitions {
+		if !statusSet[k] {
+			return fmt.Errorf("schema error: transitions key %q is not a valid status", k)
+		}
+	}
+	for k := range s.Gates {
+		if !statusSet[k] {
+			return fmt.Errorf("schema error: gates key %q is not a valid status", k)
+		}
+	}
+	if s.Locks.Body != nil {
+		for _, sv := range s.Locks.Body.LockedIn {
+			if !statusSet[sv] {
+				return fmt.Errorf("schema error: locks.body.locked_in contains invalid status %q", sv)
+			}
+		}
+	}
+	return nil
+}
+
 // ValidationError describes a single validation failure.
 type ValidationError struct {
 	ID    string `json:"id"`

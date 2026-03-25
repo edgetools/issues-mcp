@@ -58,6 +58,12 @@ func RegisterUpdateFields(srv *server.MCPServer, store *issues.Store, s *schema.
 			if fname == "status" {
 				continue
 			}
+			if fname == "id" {
+				return errResult("field 'id' is auto-generated and cannot be updated"), nil
+			}
+			if fname == "area" {
+				return errResult("field 'area' cannot be changed after creation"), nil
+			}
 			fdef, ok := s.Fields[fname]
 			if !ok {
 				return errResult(fmt.Sprintf("field '%s' is not defined in schema", fname)), nil

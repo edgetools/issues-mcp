@@ -139,7 +139,8 @@ directly. All writes go through MCP tools, which always preserve the separator.
 ## ID Generation
 
 IDs are auto-generated from the `area` field using a deterministic derivation rule.
-There is no prefix mapping in the schema. The rule is:
+There is no prefix mapping in the schema. Both `id` and `area` are MCP-intrinsic
+fields (not declared in the project schema). The rule is:
 
 1. Take the `area` string (e.g., `"Combat/Aggro"`)
 2. Split on `/`
@@ -168,11 +169,6 @@ The prefix derivation is mechanical and collision-free across distinct areas.
   "statuses": ["backlog", "active", "done"],
 
   "fields": {
-    "id": {
-      "type": "string",
-      "required": true,
-      "generated": true
-    },
     "title": {
       "type": "string",
       "required": true
@@ -182,10 +178,6 @@ The prefix derivation is mechanical and collision-free across distinct areas.
       "required": true,
       "values": ["backlog", "active", "done"],
       "default": "backlog"
-    },
-    "area": {
-      "type": "string",
-      "required": true
     },
     "depends_on": {
       "type": "list",
@@ -229,9 +221,19 @@ The prefix derivation is mechanical and collision-free across distinct areas.
 **`statuses`**: Ordered list of valid statuses. Each status gets a subdirectory under
 `--issues-dir`. This is the source of truth for directory creation.
 
-**`fields`**: Every frontmatter field, its type, whether it is required, its default
-value, and any constraints. Supported types: `string`, `bool`, `enum`, `list`, `int`.
-Fields marked `generated: true` are set by the MCP, not by the caller.
+**`fields`**: Project-defined frontmatter fields, their types, whether they are
+required, their default values, and any constraints. Supported types: `string`,
+`bool`, `enum`, `list`, `int`.
+
+Two fields are **implicit** and must NOT appear in the schema: `id` (always string,
+auto-generated from area) and `area` (always string, always required). These are
+hardwired into the MCP's mechanics. The MCP rejects any schema that declares them.
+
+One field is **required** in every schema: `status` must be declared as an enum whose
+values match the `statuses` array, with a default. The MCP validates this on startup.
+
+All other fields are fully project-defined. A project adds whatever fields its
+workflow needs.
 
 **`transitions`**: Which statuses an issue can move to from each status. The MCP
 rejects any transition not listed here. Not exposed to agents through `get_fields`.
@@ -258,7 +260,8 @@ locked regardless of status.
 #### `get_fields`
 
 Returns the fields an agent can interact with, their types, whether they are
-writable, and valid values for enum types. This is a filtered view of the schema.
+writable, and valid values for enum types. This is a filtered view combining
+the MCP's implicit fields (`id`, `area`) with the project's schema-defined fields.
 It deliberately excludes transitions, gates, locks, validation rules, and other
 server-side enforcement details.
 
@@ -281,6 +284,9 @@ server-side enforcement details.
   }
 }
 ```
+
+`id` and `area` always appear in this output regardless of the project schema.
+They are MCP-intrinsic fields. All other fields come from the schema.
 
 Agents call this once per session to learn what fields exist and which they can
 write to. If they attempt something invalid, the write tool returns a descriptive
@@ -730,8 +736,16 @@ is written. If a file move fails, the frontmatter is not updated.
 On startup, the MCP:
 
 1. Reads and parses `--schema`. Exits with error if missing or malformed.
-2. Creates any missing status subdirectories under `--issues-dir`.
-3. Runs a full validation pass across all existing issues. Logs warnings for
+2. Validates schema structure:
+   - `status` field must exist, must be type `enum`, its values must match the
+     `statuses` array, and it must have a default.
+   - `id` and `area` must NOT be declared in the schema (they are MCP-intrinsic).
+     If present, exit with error to prevent confusion.
+   - `transitions` keys must all be valid statuses.
+   - `gates` keys must all be valid statuses.
+   - `locks.body.locked_in` values must all be valid statuses.
+3. Creates any missing status subdirectories under `--issues-dir`.
+4. Runs a full validation pass across all existing issues. Logs warnings for
    any inconsistencies (status/directory mismatch, missing required fields)
    but does NOT refuse to start. This allows the MCP to help fix problems
    rather than being blocked by them.
@@ -897,10 +911,12 @@ gates, which is the core requirement for the agentic pipeline.
 The schema is machine-read configuration, not human-edited prose. JSON avoids
 YAML parsing ambiguities and lets us reuse Go's `encoding/json` directly.
 
-**Why `generated: true` instead of letting callers set IDs?**
-Auto-generated IDs prevent collisions when multiple agents or sessions create
-issues. The scan-and-increment approach is safer than trusting callers to track
-the next number.
+**Why are `id` and `area` implicit instead of schema-declared?**
+These fields are hardwired into the MCP's mechanics: `id` is derived from `area`,
+`area` drives prefix filtering in `list_issues`. No project would ever change their
+types or remove them. Keeping them out of the schema prevents projects from
+accidentally redefining them and prevents agents from thinking they're configurable.
+`status` stays in the schema because its values are project-specific.
 
 **Why startup validation is warn-only?**
 If the MCP refuses to start when issues are invalid, you can't use the MCP to

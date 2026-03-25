@@ -17,10 +17,8 @@ just install # installs to $GOPATH/bin
 {
   "statuses": ["backlog", "active", "done"],
   "fields": {
-    "id":            { "type": "string", "required": true, "generated": true },
     "title":         { "type": "string", "required": true },
     "status":        { "type": "enum", "required": true, "values": ["backlog", "active", "done"], "default": "backlog" },
-    "area":          { "type": "string", "required": true },
     "depends_on":    { "type": "list", "item_type": "string", "default": [] },
     "spec_approved": { "type": "bool", "default": false }
   },
@@ -122,9 +120,21 @@ IDs are derived from the `area` field: split on `/`, uppercase each segment, joi
 ## Schema Reference
 
 - **`statuses`** — ordered list of valid statuses; each gets a subdirectory
-- **`fields`** — field definitions with `type`, `required`, `generated`, `values`, `default`
+- **`fields`** — project-defined field declarations with `type`, `required`, `values`, `default`
 - **`transitions`** — allowed status moves per source status
 - **`gates`** — field conditions required to enter a status
 - **`locks`** — content sections locked in certain statuses (`body` is the only lockable section)
 
 Field types: `string`, `bool`, `enum`, `list`, `int`
+
+### Field tiers
+
+Fields come from three sources:
+
+| Tier | Fields | Declared in schema? |
+|------|--------|---------------------|
+| MCP-intrinsic | `id`, `area` | No — hardwired; declaring them in `fields` is a startup error |
+| Required by MCP | `status` | Yes — must be type `enum` with `values` matching `statuses` and a `default` |
+| Project-defined | everything else | Yes — add whatever fields the project needs |
+
+`id` is auto-generated from `area` and cannot be updated. `area` cannot be changed after creation.
